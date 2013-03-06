@@ -1,0 +1,10 @@
+name: InfiniteOre
+description: Allows server owners to set ores to respawn after a certain amount of time
+main: com.github.stephengardner.infiniteore.InfiniteOre
+version: 0.1
+author: Stephen Gardner
+commands:
+    io:
+        description: Removes/sets the respawn interval to an ore
+        permission: io.set
+        usage: /io or /io <seconds>
