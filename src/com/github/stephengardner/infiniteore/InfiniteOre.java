@@ -9,6 +9,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.HashMap;
 
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
@@ -16,6 +17,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -46,6 +48,7 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 
 	private HashMap<String, Ore> oreMap;
 	private HashMap<String, Integer> tasks;
+	private HashMap<String, String> messages;
 	private Boolean info;
 
 	File oreFile;
@@ -72,7 +75,23 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 		}
 
 		loadOre();
+		loadLang();
 		info = getConfig().getBoolean("InfiniteOre.Info", true);
+	}
+
+	public void loadLang() {
+		messages = new HashMap<String, String>();
+		messages.put("BLOCK_SET", color(getConfig().getString("InfiniteOre.Language.BLOCK_SET", "&a%s &2set to respawn in &a%d &2seconds.")));
+		messages.put("INFO", color(getConfig().getString("InfiniteOre.Language.INFO", "&2This &a%s &2is set to respawn every &a%d &2seconds.")));
+		messages.put("INVALID_INPUT", color(getConfig().getString("InfiniteOre.Language.INVALID_INPUT", "&cInvalid respawn time. Respawn time must be in seconds.")));
+		messages.put("NO_CONSOLE", color(getConfig().getString("InfiniteOre.Language.NO_CONSOLE", "&cThis command is not available from Console.")));
+		messages.put("NO_RESPAWN", color(getConfig().getString("InfiniteOre.Language.NO_RESPAWN", "&a%s &2will no longer respawn.")));
+		messages.put("NO_TARGET", color(getConfig().getString("InfiniteOre.Language.NO_TARGET", "&cNo block targeted.")));
+		messages.put("NOT_SET", color(getConfig().getString("InfiniteOre.Language.NOT_SET", "&cThis block is not set to respawn.")));
+	}
+
+	public String color(String m) {
+		return ChatColor.translateAlternateColorCodes('&', m);
 	}
 
 	@Override
@@ -86,11 +105,11 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 		oreMap.clear();
 	}
 
-	@EventHandler
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onBlockBreak(BlockBreakEvent e) {
 		String key = getKey(e.getBlock());
 
-		if (!oreMap.containsKey(key)) {
+		if (!oreMap.containsKey(key) || tasks.containsKey(key)) {
 			return;
 		}
 
@@ -117,14 +136,14 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 		}
 
 		Ore ore = oreMap.get(getKey(e.getClickedBlock()));
-		e.getPlayer().sendMessage(String.format("This %s is set to respawn every %d seconds.", getTypeName(ore.getBlockType()), ore.getRespawnInterval()));
+		e.getPlayer().sendMessage(String.format(messages.get("INFO"), getTypeName(ore.getBlockType()), ore.getRespawnInterval()));
 	}
 
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
 		if (cmd.getName().equalsIgnoreCase("io")) {
 			if (!(sender instanceof Player)) {
-				sender.sendMessage("This command is not available from Console.");
+				sender.sendMessage(messages.get("NO_CONSOLE"));
 				return true;
 			}
 
@@ -133,13 +152,13 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 			String key = getKey(block);
 
 			if (block == null || block.getType() == Material.AIR) {
-				sender.sendMessage("No block targeted.");
+				sender.sendMessage(messages.get("NO_TARGET"));
 				return true;
 			}
 
 			if (args.length < 1) {
 				if (!oreMap.containsKey(key)) {
-					sender.sendMessage("This block is not set to respawn.");
+					sender.sendMessage(messages.get("NOT_SET"));
 					return true;
 				}
 
@@ -147,8 +166,8 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 					getServer().getScheduler().cancelTask(tasks.get(key));
 				}
 
+				sender.sendMessage(String.format(messages.get("NO_RESPAWN"), getTypeName(oreMap.get(key).getBlockType())));
 				oreMap.remove(key);
-				sender.sendMessage("This block will no longer respawn.");
 				saveOre();
 				return true;
 			}
@@ -158,7 +177,7 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 			try {
 				seconds = Integer.parseInt(args[0]);
 			} catch (NumberFormatException e) {
-				sender.sendMessage("Invalid respawn time. Respawn time must be in seconds.");
+				sender.sendMessage(messages.get("INVALID_INPUT"));
 				return true;
 			}
 
@@ -173,7 +192,7 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 
 			ore.setRespawnInterval(seconds);
 			ore.setBlockType(block.getType());
-			sender.sendMessage(String.format("Ore set to respawn in %d seconds.", seconds));
+			sender.sendMessage(String.format(messages.get("BLOCK_SET"), getTypeName(block.getType()), seconds));
 			saveOre();
 		}
 
@@ -192,9 +211,7 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 	public void recreateOre(Ore ore) {
 		Block block = getServer().getWorld(ore.getWorld()).getBlockAt(ore.getLocX(), ore.getLocY(), ore.getLocZ());
 		block.setType(ore.getBlockType());
-
-		int task = tasks.get(getKey(block));
-		tasks.remove(task);
+		tasks.remove(getKey(block));
 	}
 
 	public String getTypeName(Material type) {

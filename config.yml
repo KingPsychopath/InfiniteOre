@@ -1,2 +1,10 @@
 InfiniteOre:
   Info: true
+  Language:
+    BLOCK_SET: "&a%s &2set to respawn in &a%d &2seconds."
+    INFO: "&2This &a%s &2is set to respawn every &a%d &2seconds."
+    INVALID_INPUT: "&cInvalid respawn time. Respawn time must be in seconds."
+    NO_CONSOLE: "&cThis command is not available from Console."
+    NO_RESPAWN: "&a%s &2will no longer respawn."
+    NO_TARGET: "&cNo block targeted."
+    NOT_SET: "&cThis block is not set to respawn."
