@@ -47,7 +47,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor {
 
 	private HashMap<String, Ore> oreMap;
-	private HashMap<String, Integer> tasks;
 	private HashMap<String, String> messages;
 	private Boolean info;
 
@@ -61,7 +60,6 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 		getServer().getPluginManager().registerEvents(this, this);
 
 		oreMap = new HashMap<String, Ore>();
-		tasks = new HashMap<String, Integer>();
 		oreFile = new File(getDataFolder(), "ore.db");
 
 		if (!oreFile.exists()) {
@@ -77,6 +75,9 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 		loadOre();
 		loadLang();
 		info = getConfig().getBoolean("InfiniteOre.Info", true);
+
+		OreTask ot = new OreTask(this);
+		ot.start();
 	}
 
 	public void loadLang() {
@@ -96,12 +97,14 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 
 	@Override
 	public void onDisable() {
-		for (String key : tasks.keySet()) {
-			getServer().getScheduler().cancelTask(tasks.get(key));
-			recreateOre(oreMap.get(key));
+		for (String key : oreMap.keySet()) {
+			if (oreMap.get(key).getTimer() > -1) {
+				Ore ore = oreMap.get(key);
+				recreateOre(ore);
+				ore.setTimer(-1);
+			}
 		}
 
-		tasks.clear();
 		oreMap.clear();
 	}
 
@@ -109,20 +112,12 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 	public void onBlockBreak(BlockBreakEvent e) {
 		String key = getKey(e.getBlock());
 
-		if (!oreMap.containsKey(key) || tasks.containsKey(key)) {
+		if (!oreMap.containsKey(key) || oreMap.get(key).getTimer() > -1) {
 			return;
 		}
 
-		final Ore ore = oreMap.get(key);
-
-		tasks.put(key, getServer().getScheduler().runTaskLater(this, new Runnable() {
-
-			@Override
-			public void run() {
-				recreateOre(ore);
-			}
-
-		}, ore.getRespawnInterval() * 20L).getTaskId());
+		Ore ore = oreMap.get(key);
+		ore.setTimer(ore.getRespawnInterval());
 	}
 
 	@EventHandler
@@ -162,10 +157,6 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 					return true;
 				}
 
-				if (tasks.containsKey(key)) {
-					getServer().getScheduler().cancelTask(tasks.get(key));
-				}
-
 				sender.sendMessage(String.format(messages.get("NO_RESPAWN"), getTypeName(oreMap.get(key).getBlockType())));
 				oreMap.remove(key);
 				saveOre();
@@ -190,6 +181,7 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 				oreMap.put(key, ore);
 			}
 
+			ore.setTimer(-1);
 			ore.setRespawnInterval(seconds);
 			ore.setBlockType(block.getType());
 			sender.sendMessage(String.format(messages.get("BLOCK_SET"), getTypeName(block.getType()), seconds));
@@ -211,7 +203,6 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 	public void recreateOre(Ore ore) {
 		Block block = getServer().getWorld(ore.getWorld()).getBlockAt(ore.getLocX(), ore.getLocY(), ore.getLocZ());
 		block.setType(ore.getBlockType());
-		tasks.remove(getKey(block));
 	}
 
 	public String getTypeName(Material type) {
@@ -263,5 +254,9 @@ public class InfiniteOre extends JavaPlugin implements Listener, CommandExecutor
 		} catch (ClassNotFoundException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public HashMap<String, Ore> getOreMap() {
+		return oreMap;
 	}
 }

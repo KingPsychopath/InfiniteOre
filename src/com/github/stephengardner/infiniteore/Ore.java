@@ -11,7 +11,7 @@ public class Ore implements Serializable {
 	private static final long serialVersionUID = -1555828101552635635L;
 
 	private Material blockType;
-	private int respawnInterval;
+	private int respawnInterval, timer;
 	private UUID world;
 	private int locX;
 	private int locY;
@@ -55,6 +55,14 @@ public class Ore implements Serializable {
 
 	public void setRespawnInterval(int respawnInterval) {
 		this.respawnInterval = respawnInterval;
+	}
+
+	public int getTimer() {
+		return timer;
+	}
+
+	public void setTimer(int timer) {
+		this.timer = timer;
 	}
 
 }
